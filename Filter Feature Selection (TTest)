@@ -1,0 +1,55 @@
+# *****************************************************************************
+# ** DATE: 10/08/2020
+# ** BY: FATEMEH SHAHSAVARI
+# ** TITLE: FILTER FEATURE SELECTION (T-TEST)
+# ** DESCRIPTION: 
+# ** - THIS CODE AIMS TO RUN T STATISTICS TEST FOR FEATURE SELECTION.
+# ** - THE ORIGINAL DATASET (MATERIAL STACKING FAULT ENERGY) CAN BE ACCESSED HERE: https://braganeto.engr.tamu.edu/book-website/
+# *****************************************************************************
+
+# *******************************  LIBRARIES  *********************************
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from scipy. stats import ttest_ind
+
+###############################################################################
+
+###############################################################################
+# *********************************  CODE BODY ********************************  
+
+#Load the original dataset. The dataset can be accessed here: https://braganeto.engr.tamu.edu/book-website/
+#The pre-processing to remove zero components is from: https://braganeto.engr.tamu.edu/book-website/
+dataPoints  = pd.read_table("Stacking_Fault_Energy_Dataset.txt")
+f_org = dataPoints.columns[:-1]                # original features 
+n_org = dataPoints.shape[0]                    # original number of training points
+p_org = np.sum(dataPoints.iloc[:,:-1]>0)/n_org # fraction of nonzero components for each feature
+f_drp = f_org[p_org<0.6]		             # features with less than 60% nonzero components
+SFE1  = dataPoints.drop(f_drp,axis=1)          # drop those features
+s_min = SFE1.min(axis=1)                     
+SFE2  = SFE1[s_min!=0]                       # drop sample points with any zero values  
+SFE   = SFE2[(SFE2.SFE<35)|(SFE2.SFE>45)]    # drop sample points with middle responses
+n_samples = int(SFE.shape[0])
+Y = SFE.SFE > 40 # if SFE > 40, Y =true , else Y=false
+# so Y == True and ~Y==False which represent the labels
+
+#Pick the first 80% of the sample points to be the training data and the remaining 20% to be the test data.
+splitPoint = int(0.8*len(SFE))
+trainSample = SFE[:splitPoint] 
+testSample = SFE[splitPoint:]
+#Two classes are defined: Class 0 contains the data with Stacking_Fault_Energy (SFE) > 40 and class 1 includes the data resulting SFE < 40.
+train_X = trainSample.iloc[:,:-1].values 
+train_Y = trainSample.iloc[:,-1]>40 
+test_X = testSample.iloc[:,:-1].values 
+test_Y = testSample.iloc[:,-1]>40
+
+#Conduct a T test and sort the features based on the absolute t-test value.
+tTest_Value = ttest_ind(train_X[train_Y], train_X[~train_Y])
+tTest_Value = [abs(ele) for ele in tTest_Value] 
+print (tTest_Value)
+
+cols = {'t_statistics': tTest_Value[0],'p_value': tTest_Value[1]}
+
+df = pd.DataFrame(cols, columns = ['t_statistics','p_value'], index=['C' , 'N' ,  'Mn' , 'Si', 'Cr', 'Ni' , 'Fe'])
+df.sort_values(by=['t_statistics'], inplace=True, ascending=False)
+print (df)
